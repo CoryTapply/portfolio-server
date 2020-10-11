@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-
-	"github.com/gorilla/mux"
 )
 
 // formatRequest generates ascii representation of a request
@@ -35,26 +33,15 @@ func formatRequest(r *http.Request) string {
 	return strings.Join(request, "\n")
 }
 
-func getResource(writer http.ResponseWriter, request *http.Request) {
-	fmt.Println("Sending File...")
-	fmt.Println(request.URL.Path)
-	fmt.Println(formatRequest(request))
-	http.ServeFile(writer, request, "."+request.URL.Path)
-}
+func getFileExtension(contentType string) string {
+	fileEnding := ""
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Hello from the api!asdasdad")
-}
+	switch contentType {
+	case "video/mp4":
+		fileEnding = ".mp4"
+	case "image/png":
+		fileEnding = ".png"
+	}
 
-func main() {
-	r := mux.NewRouter()
-
-	r.PathPrefix("/resources/").Handler(http.FileServer(http.Dir(".")))
-	http.HandleFunc("/asd", handler)
-
-	http.Handle("/", r)
-
-	fmt.Println("Server listening!")
-	fmt.Println("Server listeninglkjhsdkljhalsdasdasdasasdasddas")
-	panic(http.ListenAndServe(":9090", nil))
+	return fileEnding
 }

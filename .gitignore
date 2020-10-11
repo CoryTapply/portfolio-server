@@ -1,3 +1,6 @@
 .DS_store
 *.exe
-./resources/uploaded
+portfolio-server.exe*
+resources/uploaded/*
+resources/thumbnails/*
+main.go

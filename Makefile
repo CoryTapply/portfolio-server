@@ -8,7 +8,7 @@ up: default
 
 windows-up:
 	@echo "=============starting api locally, no docker============="
-	CompileDaemon -build="go build main.go" -command="./main"
+	CompileDaemon -build="go build -o portfolio-server.exe ./src" -command="./portfolio-server"
 
 logs:
 	docker-compose logs -f
