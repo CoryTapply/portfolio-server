@@ -7,19 +7,26 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
+
+	"github.com/rs/xid"
 )
 
-var localUploadPath = "./resources/uploaded"
+var localVideoUploadPath = "./resources/uploaded"
+var localThumnailUploadPath = "./resources/thumbnails"
 
 const (
 	// Resolution
+	scale480p  = "scale=-1:480"
 	scale720p  = "scale=-1:720"
 	scale1080p = "scale=-1:1080"
 	scale1440p = "scale=-1:1440"
 
 	// Quality
-	qualityHigh = "23"
-	qualityLow  = "28"
+	qualityBest     = "4"
+	qualityVeryHigh = "12"
+	qualityHigh     = "23"
+	qualityLow      = "28"
 
 	// Frame Rate
 	frameRate30 = "30"
@@ -28,15 +35,18 @@ const (
 
 func saveFile(fileName string, file io.Reader, start string, end string) {
 	newFile := writeFile(fileName, file)
-	compressVideo(newFile.Name(), start, end, localUploadPath+"/testOutput6.mp4")
+	guid := xid.New()
+
+	println(guid.String())
+	compressVideo(newFile.Name(), start, end, localVideoUploadPath+"/"+guid.String()+".mp4")
+	grabThumbnail(newFile.Name(), start, localThumnailUploadPath+"/"+guid.String()+".jpg")
 }
 
 func writeFile(fileName string, file io.Reader) *os.File {
-
-	tempFile, err := ioutil.TempFile(localUploadPath, fileName)
+	tempFile, err := ioutil.TempFile(localVideoUploadPath, fileName)
 	if err != nil {
-		os.Mkdir(localUploadPath, 0777)
-		tempFile, err = ioutil.TempFile(localUploadPath, fileName)
+		os.Mkdir(localVideoUploadPath, 0777)
+		tempFile, err = ioutil.TempFile(localVideoUploadPath, fileName)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -63,7 +73,7 @@ func compressVideo(filePath string, start string, end string, outputFilePath str
 	// ffmpeg -i resources/uploaded/upload-814755955.mp4 -vf scale=-1:720 -c:v libx264 -crf 23 -preset medium -c:a copy -r 30 resources/uploaded/upload-814755955result.mp4
 
 	fmt.Println(formattedFilePath)
-	optionsString := []string{"-ss", start, "-i", formattedFilePath, "-to", end, "-vf", scale1080p, "-c:v", "libx264", "-crf", qualityLow, "-preset", "medium", "-c:a", "copy", "-r", frameRate30, outputFilePath, "-y"}
+	optionsString := []string{"-ss", start, "-i", formattedFilePath, "-to", end, "-vf", scale1080p, "-c:v", "libx264", "-crf", qualityHigh, "-preset", "medium", "-c:a", "copy", "-map", "0", "-r", frameRate60, outputFilePath, "-y"}
 	cmd := exec.Command("ffmpeg", optionsString...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -78,10 +88,56 @@ func compressVideo(filePath string, start string, end string, outputFilePath str
 		if err != nil {
 			fmt.Printf("cmd.Run() failed with %s\n", err)
 		} else {
+			fmt.Printf("No errors compressing video !! Wahoo\n")
 			err := os.Remove(filePath)
 			if err != nil {
 				fmt.Printf("os.Remove() failed with %s\n", err)
 			}
 		}
 	}()
+}
+
+func grabThumbnail(filePath string, start string, outputFilePath string) {
+	regex := regexp.MustCompile(`\\`)
+	formattedFilePath := regex.ReplaceAllString(filePath, "/")
+
+	fmt.Println(formattedFilePath)
+	optionsString := []string{"-ss", start, "-i", formattedFilePath, "-vframes", "1", "-vf", scale480p, "-q:v", qualityVeryHigh, outputFilePath, "-y"}
+	cmd := exec.Command("ffmpeg", optionsString...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Start()
+	if err != nil {
+		fmt.Printf("cmd.Run() failed with %s\n", err)
+	}
+
+	go func() {
+		err := cmd.Wait()
+		fmt.Println("YAY WE DID IT")
+		if err != nil {
+			fmt.Printf("cmd.Run() failed with %s\n", err)
+		} else {
+			fmt.Printf("No errors with the thumbnail!! Wahoo\n")
+			err := os.Remove(filePath)
+			if err != nil {
+				fmt.Printf("os.Remove() failed with %s\n", err)
+			}
+		}
+	}()
+}
+
+func getVideos(fileDirectory string) (videos []os.FileInfo) {
+	files, err := ioutil.ReadDir(fileDirectory)
+	if err != nil {
+		fmt.Printf("ioutil.ReadDir() failed with %s\n", err)
+	}
+
+	// Filter out any non-MP4 files
+	for _, file := range files {
+		if strings.Contains(file.Name(), ".mp4") {
+			videos = append(videos, file)
+		}
+	}
+
+	return videos
 }
