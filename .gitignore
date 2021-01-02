@@ -3,4 +3,3 @@
 portfolio-server.exe*
 resources/uploaded/*
 resources/thumbnails/*
-main.go

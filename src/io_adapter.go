@@ -35,11 +35,10 @@ const (
 
 func saveFile(fileName string, file io.Reader, start string, end string) {
 	newFile := writeFile(fileName, file)
-	guid := xid.New()
-
-	println(guid.String())
-	compressVideo(newFile.Name(), start, end, localVideoUploadPath+"/"+guid.String()+".mp4")
-	grabThumbnail(newFile.Name(), start, localThumnailUploadPath+"/"+guid.String()+".jpg")
+	videoID := xid.New()
+	// TODO: Save a trimmed copy at full resolution
+	compressVideo(newFile.Name(), start, end, localVideoUploadPath+"/"+videoID.String()+".mp4")
+	grabThumbnail(newFile.Name(), start, localThumnailUploadPath+"/"+videoID.String()+".jpg")
 }
 
 func writeFile(fileName string, file io.Reader) *os.File {

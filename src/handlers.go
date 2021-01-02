@@ -80,6 +80,14 @@ func generateVideoResponseObject(videoFiles []os.FileInfo, host string, director
 	return response
 }
 
+func indexHandler(entrypoint string) func(w http.ResponseWriter, r *http.Request) {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, entrypoint)
+	}
+
+	return http.HandlerFunc(fn)
+}
+
 // func getResourceHandler(writer http.ResponseWriter, request *http.Request) {
 // 	fmt.Println("Sending File...")
 // 	fmt.Println(request.URL.Path)
