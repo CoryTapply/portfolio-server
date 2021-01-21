@@ -6,4 +6,17 @@ services:
         ports:
             - 9090:9090
         volumes:
-            - ./:/go/src
+            - ./resources:/go/src/resources
+            # - ./dist:/go/src/dist
+        env_file:
+            - .env
+    api-dev:
+        image: portfolio-api-dev:latest
+        ports:
+            - 9090:9090
+        volumes:
+            - ./resources:/go/src/resources
+            - ./dist:/go/src/dist
+            - ./src:/go/src/src
+        env_file:
+            - .env
