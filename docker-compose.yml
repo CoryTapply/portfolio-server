@@ -19,4 +19,4 @@ services:
             - ./dist:/go/src/dist
             - ./src:/go/src/src
         env_file:
-            - .env
+            - dev.env

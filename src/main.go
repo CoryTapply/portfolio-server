@@ -10,13 +10,10 @@ import (
 
 var indexEntryPoint = "./dist/index.html"
 
+var port, _ = os.LookupEnv("PORT")
+var env, _ = os.LookupEnv("ENVIRONMENT")
+
 func main() {
-
-	port, exists := os.LookupEnv("PORT")
-
-	if !exists {
-		port = "9090"
-	}
 
 	r := mux.NewRouter()
 

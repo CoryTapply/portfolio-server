@@ -71,15 +71,30 @@ func getVideosHandler(writer http.ResponseWriter, request *http.Request) {
 	writer.Write(responseJSON)
 }
 
+/**
+ * Handler method for generating the json response object of the videoFiles that were loaded from disk
+ */
 func generateVideoResponseObject(videoFiles []os.FileInfo, host string, directoryPath string, thumbnailDirectory string) (response []Video) {
+	// Set the security scheme for the video urls
+	scheme := "https://"
+	if env == "LOCAL" {
+		scheme = "http://"
+	}
+
 	for _, file := range videoFiles {
 		videoNameNoType := strings.TrimSuffix(file.Name(), ".mp4")
-		response = append(response, Video{VideoLocation: "https://" + host + directoryPath + videoNameNoType + ".mp4", ThumbnailLocation: "http://" + host + thumbnailDirectory + videoNameNoType + ".jpg"})
+		response = append(response, Video{
+			VideoLocation:     scheme + host + directoryPath + videoNameNoType + ".mp4",
+			ThumbnailLocation: scheme + host + thumbnailDirectory + videoNameNoType + ".jpg",
+		})
 	}
 
 	return response
 }
 
+/**
+ * Handler method for just serving the index.html file
+ */
 func indexHandler(entrypoint string) func(w http.ResponseWriter, r *http.Request) {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, entrypoint)
@@ -88,9 +103,12 @@ func indexHandler(entrypoint string) func(w http.ResponseWriter, r *http.Request
 	return http.HandlerFunc(fn)
 }
 
+/**
+ * Handler method for responding to the health and readiness checks with a 204 code
+ */
 func healthCheckHandler(entrypoint string) func(w http.ResponseWriter, r *http.Request) {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusNoContent)
 	}
 
 	return http.HandlerFunc(fn)

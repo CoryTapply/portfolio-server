@@ -2,7 +2,7 @@ FROM golang:latest
 
 WORKDIR /go/src
 
-COPY .env .
+COPY dev.env ./.env
 COPY app.yaml .
 COPY go.mod .
 COPY go.sum .
