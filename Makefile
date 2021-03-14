@@ -1,10 +1,12 @@
 default:
 	@echo "============= Building Local API ============="
 	docker build -f dev.Dockerfile -t portfolio-api-dev .
+	docker build -f ./database/Dockerfile -t portfolio-db .
 
 up: default
 	@echo "============= Starting API Locally ============="
 	docker-compose up -d api-dev
+	docker-compose up -d portfolio-db
 
 build-prod:
 	@echo "============= Building PRODUCTION API ============="
@@ -40,3 +42,10 @@ int:
 i:
 	@echo "============= Running API with Interactive Shell ============="
 	docker run -it portfolio-api sh
+
+db-i:
+	@echo "============= Running DB with Interactive Shell ============="
+	# docker exec -it portfolio-db psql -U postgres
+	# docker exec -it portfolio-server_portfolio-db_1  psql -U postgres
+	# docker exec -it portfolio-server_portfolio-db_1  bash
+	docker-compose run portfolio-db bash

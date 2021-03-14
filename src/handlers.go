@@ -36,12 +36,14 @@ func uploadHandler(writer http.ResponseWriter, request *http.Request) {
 	fmt.Printf("Uploaded File: %+v\n", handler.Filename)
 	fmt.Printf("File Size: %+v\n", handler.Size)
 	fmt.Printf("MIME Header: %+v\n", handler.Header)
-	// contentType := handler.Header.Get("Content-Type")
+	contentType := handler.Header.Get("Content-Type")
+
+	// fmt.Println(formatRequest(request))
 
 	// Write the file to disk
-	// fileEnding := getFileExtension(contentType)
-	// fileName := "upload-*" + fileEnding
-	// saveFile(fileName, file, request.FormValue("start"), request.FormValue("end"))
+	fileEnding := getFileExtension(contentType)
+	fileName := "upload-*" + fileEnding
+	saveFile(fileName, file, request.FormValue("start"), request.FormValue("end"))
 
 	data := ResponseData{Message: "Successfully Uploaded File"}
 	writer.WriteHeader(http.StatusOK)
