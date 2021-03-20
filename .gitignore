@@ -3,3 +3,4 @@
 portfolio-server.exe*
 resources/uploaded/*
 resources/thumbnails/*
+database/data/*

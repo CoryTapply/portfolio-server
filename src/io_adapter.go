@@ -13,7 +13,7 @@ import (
 )
 
 var localVideoUploadPath = "./resources/uploaded"
-var localThumnailUploadPath = "./resources/thumbnails"
+var localThumbnailUploadPath = "./resources/thumbnails"
 
 const (
 	// Resolution
@@ -38,7 +38,7 @@ func saveFile(fileName string, file io.Reader, start string, end string) {
 	videoID := xid.New()
 	// TODO: Save a trimmed copy at full resolution
 	compressVideo(newFile.Name(), start, end, localVideoUploadPath+"/"+videoID.String()+".mp4")
-	grabThumbnail(newFile.Name(), start, localThumnailUploadPath+"/"+videoID.String()+".jpg")
+	grabThumbnail(newFile.Name(), start, localThumbnailUploadPath+"/"+videoID.String()+".jpg")
 }
 
 func writeFile(fileName string, file io.Reader) *os.File {

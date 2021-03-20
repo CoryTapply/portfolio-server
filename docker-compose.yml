@@ -21,21 +21,21 @@ services:
     env_file:
       - dev.env
   portfolio-db:
-    image: postgres-db:latest
+    image: portfolio-db:latest
     restart: always
     # environment:
     #   POSTGRES_PASSWORD: mypassword
     volumes:
-      - database-folder:/var/lib/postgresql/data
-      # - ./database/data:/var/lib/postgresql/data
+      - ./database/data:/var/lib/postgresql/data
+    #   - database-folder:/var/lib/postgresql/data
       # - type: bind
       #   source: ./database/data
       #   target: /var/lib/postgresql/data
     ports:
       - 5432:5432
 
-volumes:
-  database-folder:
+# volumes:
+#   database-folder:
 
 # volumes:
 #   database-folder:
