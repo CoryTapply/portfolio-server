@@ -23,24 +23,11 @@ services:
   portfolio-db:
     image: portfolio-db:latest
     restart: always
-    # environment:
-    #   POSTGRES_PASSWORD: mypassword
     volumes:
-      - ./database/data:/var/lib/postgresql/data
-    #   - database-folder:/var/lib/postgresql/data
-      # - type: bind
-      #   source: ./database/data
-      #   target: /var/lib/postgresql/data
+      # - ./database/data:/var/lib/postgresql/data
+      - database-folder:/var/lib/postgresql/data
     ports:
       - 5432:5432
 
-# volumes:
-#   database-folder:
-
-# volumes:
-#   database-folder:
-#     driver: local
-#     driver_opts:
-#       type: 'none'
-#       o: 'bind'
-#       device: '\Users\Cory\Documents\Code\Portfolio\portfolio-server\database\data'
+volumes:
+  database-folder:
