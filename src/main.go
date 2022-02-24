@@ -17,6 +17,15 @@ func main() {
 
 	r := mux.NewRouter()
 
+	// srv := &http.Server{
+	// 	Addr: "0.0.0.0:" + port,
+	// 	// Good practice to set timeouts to avoid Slowloris attacks.
+	// 	WriteTimeout: time.Second * 300,
+	// 	ReadTimeout:  time.Second * 600,
+	// 	IdleTimeout:  time.Second * 600,
+	// 	Handler:      r, // Pass our instance of gorilla/mux in.
+	// }
+
 	api := r.PathPrefix("/api/v1/").Subrouter()
 	api.HandleFunc("/uploadVideo", uploadHandler).Methods("POST", "OPTIONS")
 	api.HandleFunc("/getVideos", getVideosHandler).Methods("GET", "OPTIONS")
@@ -34,6 +43,17 @@ func main() {
 
 	http.Handle("/", r)
 
+	defer func() {
+		if error := recover(); error != nil {
+			fmt.Println("This is the error: ", error)
+		}
+	}()
+
 	fmt.Println("Server listening! On Port " + port)
-	panic(http.ListenAndServe(":"+port, nil))
+	err := http.ListenAndServe(":"+port, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	panic(err)
+	// panic(srv.ListenAndServe())
 }

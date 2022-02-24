@@ -45,3 +45,8 @@ func getFileExtension(contentType string) string {
 
 	return fileEnding
 }
+
+func trimFileEnding(fileName string) string {
+	s := strings.Split(fileName, ".")
+	return strings.Join(s[:len(s)-1], "")
+}

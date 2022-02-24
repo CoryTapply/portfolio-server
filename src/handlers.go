@@ -4,18 +4,50 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
+	"strconv"
 	"strings"
+
+	"github.com/rs/xid"
 )
 
 type ResponseData struct {
-	Message string  `json:"message"`
-	Videos  []Video `json:"videos"`
+	Message string          `json:"message"`
+	Videos  []VideoResponse `json:"videos"`
+}
+
+type VideoResponse struct {
+	VideoLocation     string `json:"videoLocation"`
+	ThumbnailLocation string `json:"thumbnailLocation"`
+	ID                string `json:"id"`
+	UrlSlug           string `json:"urlSlug"`
+	Title             string `json:"title"`
+	Tags              string `json:"tags"`
+	Game              string `json:"game"`
+	HasVoice          bool   `json:"hasVoice"`
+	ViewCount         int    `json:"viewCount"`
+	Duration          string `json:"duration"`
 }
 
 type Video struct {
-	VideoLocation     string `json:"videoLocation"`
-	ThumbnailLocation string `json:"thumbnailLocation"`
+	ID        string
+	UrlSlug   string
+	Title     string
+	Tags      string
+	Game      string
+	HasVoice  bool
+	ViewCount int
+	Duration  string
+}
+
+type UploadVideo struct {
+	ID        string
+	UrlSlug   string
+	Title     string
+	Tags      string
+	Game      string
+	HasVoice  bool
+	ViewCount int
+	Duration  string
 }
 
 func uploadHandler(writer http.ResponseWriter, request *http.Request) {
@@ -24,26 +56,55 @@ func uploadHandler(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	writer.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 
+	fmt.Println("Received Upload Request, processing now.")
 	// Parse our multipart form, 10 << 32 specifies a maximum upload of 5 Gb
-	request.ParseMultipartForm(10 << 32)
+	err := request.ParseMultipartForm(10 << 40)
+	if err != nil {
+		fmt.Println("Error parsing form")
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Finished step 1.")
 	file, handler, err := request.FormFile("file")
 	if err != nil {
 		fmt.Println("Error Retrieving the File")
 		fmt.Println(err)
 		return
 	}
+	fmt.Println("Finished step 2.")
 	defer file.Close()
 	fmt.Printf("Uploaded File: %+v\n", handler.Filename)
 	fmt.Printf("File Size: %+v\n", handler.Size)
 	fmt.Printf("MIME Header: %+v\n", handler.Header)
 	contentType := handler.Header.Get("Content-Type")
 
-	// fmt.Println(formatRequest(request))
+	videoID := xid.New()
+
+	startTime := request.FormValue("start")
+	endTime := request.FormValue("end")
+	startTimeParsed, _ := strconv.ParseFloat(startTime, 64)
+	endTimeParsed, _ := strconv.ParseFloat(endTime, 64)
+
+	duration := fmt.Sprintf("%.2f", endTimeParsed-startTimeParsed)
+	voiceChatEnabled, _ := strconv.ParseBool(request.FormValue("enableVoiceChat"))
+
+	videoName := request.FormValue("videoName")
+
+	createVideo(
+		videoID.String(),
+		videoName,
+		request.FormValue("videoTags"),
+		request.FormValue("videoGame"),
+		voiceChatEnabled,
+		duration,
+	)
 
 	// Write the file to disk
 	fileEnding := getFileExtension(contentType)
 	fileName := "upload-*" + fileEnding
-	saveFile(fileName, file, request.FormValue("start"), request.FormValue("end"))
+	fullVideoName := strings.ReplaceAll(trimFileEnding(handler.Filename)+"_"+videoName+".mp4", " ", "")
+	fmt.Println("About to save the files now")
+	saveFile(fileName, fullVideoName, file, videoID.String(), startTime, endTime)
 
 	data := ResponseData{Message: "Successfully Uploaded File"}
 	writer.WriteHeader(http.StatusOK)
@@ -59,12 +120,20 @@ func getVideosHandler(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	writer.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 
-	rootDirectory := "."
+	fmt.Println("Received Get Videos Request, processing now.")
+	if request.Method == "OPTIONS" {
+		writer.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// rootDirectory := "."
 	fileDirectory := "/resources/uploaded/"
 	fileThumbnailDirectory := "/resources/thumbnails/"
-	files := getVideos(rootDirectory + fileDirectory)
+	// files := getVideos(rootDirectory + fileDirectory)
 
-	data := ResponseData{Message: "Successfully Loaded Files", Videos: generateVideoResponseObject(files, request.Host, fileDirectory, fileThumbnailDirectory)}
+	videos := getVideosFromDB()
+
+	data := ResponseData{Message: "Successfully Loaded Files", Videos: generateVideoResponseObject(videos, request.Host, fileDirectory, fileThumbnailDirectory)}
 	responseJSON, err := json.Marshal(data)
 	if err != nil {
 		fmt.Println(err)
@@ -74,20 +143,27 @@ func getVideosHandler(writer http.ResponseWriter, request *http.Request) {
 }
 
 /**
- * Handler method for generating the json response object of the videoFiles that were loaded from disk
+ * Handler method for generating the json response object of the videos that were loaded from disk
  */
-func generateVideoResponseObject(videoFiles []os.FileInfo, host string, directoryPath string, thumbnailDirectory string) (response []Video) {
+func generateVideoResponseObject(videos []Video, host string, directoryPath string, thumbnailDirectory string) (response []VideoResponse) {
 	// Set the security scheme for the video urls
 	scheme := "https://"
 	if env == "LOCAL" {
 		scheme = "http://"
 	}
 
-	for _, file := range videoFiles {
-		videoNameNoType := strings.TrimSuffix(file.Name(), ".mp4")
-		response = append(response, Video{
-			VideoLocation:     scheme + host + directoryPath + videoNameNoType + ".mp4",
-			ThumbnailLocation: scheme + host + thumbnailDirectory + videoNameNoType + ".jpg",
+	for _, video := range videos {
+		response = append(response, VideoResponse{
+			VideoLocation:     scheme + host + directoryPath + video.UrlSlug + ".mp4",
+			ThumbnailLocation: scheme + host + thumbnailDirectory + video.UrlSlug + ".jpg",
+			ID:                video.ID,
+			UrlSlug:           video.UrlSlug,
+			Title:             video.Title,
+			Tags:              video.Tags,
+			Game:              video.Game,
+			HasVoice:          video.HasVoice,
+			ViewCount:         video.ViewCount,
+			Duration:          video.Duration,
 		})
 	}
 

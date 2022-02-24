@@ -8,10 +8,10 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-
-	"github.com/rs/xid"
+	"sync"
 )
 
+var localFullResVideoUploadPath = "./resources/fullResolution"
 var localVideoUploadPath = "./resources/uploaded"
 var localThumbnailUploadPath = "./resources/thumbnails"
 
@@ -33,12 +33,19 @@ const (
 	frameRate60 = "60"
 )
 
-func saveFile(fileName string, file io.Reader, start string, end string) {
+func saveFile(fileName string, originalFileName string, file io.Reader, videoId string, start string, end string) {
 	newFile := writeFile(fileName, file)
-	videoID := xid.New()
-	// TODO: Save a trimmed copy at full resolution
-	compressVideo(newFile.Name(), start, end, localVideoUploadPath+"/"+videoID.String()+".mp4")
-	grabThumbnail(newFile.Name(), start, localThumbnailUploadPath+"/"+videoID.String()+".jpg")
+	defer os.Remove(newFile.Name())
+
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(3)
+
+	go saveTrimmedVideo(newFile.Name(), start, end, localFullResVideoUploadPath+"/"+originalFileName, &waitGroup)
+	go saveCompressVideo(newFile.Name(), start, end, localVideoUploadPath+"/"+videoId+".mp4", &waitGroup)
+	go grabThumbnail(newFile.Name(), start, localThumbnailUploadPath+"/"+videoId+".jpg", &waitGroup)
+
+	waitGroup.Wait()
+	fmt.Println("All routines finished")
 }
 
 func writeFile(fileName string, file io.Reader) *os.File {
@@ -63,68 +70,94 @@ func writeFile(fileName string, file io.Reader) *os.File {
 	return tempFile
 }
 
-func compressVideo(filePath string, start string, end string, outputFilePath string) {
-	// "resources\uploaded\upload-814755955.mp4"
+/**
+ * Generates a Full resolution Video MP4 file trimmed to the desired length
+ */
+func saveTrimmedVideo(filePath string, start string, end string, outputFilePath string, waitGroup *sync.WaitGroup) {
+	regex := regexp.MustCompile(`\\`)
+	formattedFilePath := regex.ReplaceAllString(filePath, "/")
 
+	optionsString := []string{
+		"-ss", start,
+		"-i", formattedFilePath,
+		"-to", end,
+		"-c", "copy",
+		"-map", "0",
+		outputFilePath, "-y",
+	}
+	runVideoCommand(optionsString)
+	waitGroup.Done()
+}
+
+/**
+ * Generates a Compressed Video MP4 file
+ */
+func saveCompressVideo(filePath string, start string, end string, outputFilePath string, waitGroup *sync.WaitGroup) {
 	regex := regexp.MustCompile(`\\`)
 	formattedFilePath := regex.ReplaceAllString(filePath, "/")
 
 	// ffmpeg -i resources/uploaded/upload-814755955.mp4 -vf scale=-1:720 -c:v libx264 -crf 23 -preset medium -c:a copy -r 30 resources/uploaded/upload-814755955result.mp4
 
-	fmt.Println(formattedFilePath)
-	optionsString := []string{"-ss", start, "-i", formattedFilePath, "-to", end, "-vf", scale1080p, "-c:v", "libx264", "-crf", qualityHigh, "-preset", "medium", "-c:a", "copy", "-map", "0", "-r", frameRate60, outputFilePath, "-y"}
-	cmd := exec.Command("ffmpeg", optionsString...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Start()
-	if err != nil {
-		fmt.Printf("cmd.Run() failed with %s\n", err)
+	optionsString := []string{
+		"-ss", start,
+		"-i", formattedFilePath,
+		"-to", end,
+		// "-preset", "veryslow",
+		"-preset", "medium",
+		"-vf", scale1080p,
+		"-c:v", "libx264",
+		"-crf", qualityHigh,
+		// "-filter_complex", "[0:a:1]volume=1.0[l];[0:a:0][l]amerge=inputs=2[a]",
+		// "-map", "0:v:0",
+		// "-map", "[a]",
+		"-r", frameRate60,
+		outputFilePath, "-y",
 	}
-
-	go func() {
-		err := cmd.Wait()
-		fmt.Println("YAY WE DID IT")
-		if err != nil {
-			fmt.Printf("cmd.Run() failed with %s\n", err)
-		} else {
-			fmt.Printf("No errors compressing video !! Wahoo\n")
-			err := os.Remove(filePath)
-			if err != nil {
-				fmt.Printf("os.Remove() failed with %s\n", err)
-			}
-		}
-	}()
+	runVideoCommand(optionsString)
+	waitGroup.Done()
 }
 
-func grabThumbnail(filePath string, start string, outputFilePath string) {
+/**
+ * Generates a Thumbnail JPG file from the first frame of the video
+ */
+func grabThumbnail(filePath string, start string, outputFilePath string, waitGroup *sync.WaitGroup) {
 	regex := regexp.MustCompile(`\\`)
 	formattedFilePath := regex.ReplaceAllString(filePath, "/")
-
-	fmt.Println(formattedFilePath)
 	optionsString := []string{"-ss", start, "-i", formattedFilePath, "-vframes", "1", "-vf", scale480p, "-q:v", qualityVeryHigh, outputFilePath, "-y"}
-	cmd := exec.Command("ffmpeg", optionsString...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Start()
-	if err != nil {
-		fmt.Printf("cmd.Run() failed with %s\n", err)
-	}
-
-	go func() {
-		err := cmd.Wait()
-		fmt.Println("YAY WE DID IT")
-		if err != nil {
-			fmt.Printf("cmd.Run() failed with %s\n", err)
-		} else {
-			fmt.Printf("No errors with the thumbnail!! Wahoo\n")
-			err := os.Remove(filePath)
-			if err != nil {
-				fmt.Printf("os.Remove() failed with %s\n", err)
-			}
-		}
-	}()
+	runVideoCommand(optionsString)
+	waitGroup.Done()
 }
 
+/**
+ * Runs an FFMPEG command with the given options string array
+ */
+func runVideoCommand(optionsString []string) {
+	cmd := exec.Command("ffmpeg", optionsString...)
+	// cmd.Stdout = os.Stdout
+	// cmd.Stderr = os.Stderr
+	err := cmd.Start()
+	if err != nil {
+		fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+		fmt.Printf("cmd.Run() failed with %s\n", err)
+		fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+		return
+	}
+
+	err = cmd.Wait()
+	if err != nil {
+		fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+		fmt.Printf("Command Failed: %s\nCommand: %s\n", err, optionsString)
+		fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+	} else {
+		fmt.Println("----------------------------------------------")
+		fmt.Printf("Successfully finished the \nCommand: %s\n", optionsString)
+		fmt.Println("----------------------------------------------")
+	}
+}
+
+/**
+ * Method to get the video files in the given fileDirectory
+ */
 func getVideos(fileDirectory string) (videos []os.FileInfo) {
 	files, err := ioutil.ReadDir(fileDirectory)
 	if err != nil {

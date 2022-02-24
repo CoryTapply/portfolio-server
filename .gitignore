@@ -2,5 +2,6 @@
 *.exe
 portfolio-server.exe*
 resources/uploaded/*
+resources/fullResolution/*
 resources/thumbnails/*
 database/data/*
